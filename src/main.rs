@@ -1,52 +1,62 @@
 extern crate hyper;
 extern crate futures;
 
-use hyper::header::ContentLength;
 use hyper::server::{Http, Request, Response, Service};
+
+use futures::Stream;
+use futures::Future;
+
+use futures::future::{Either, Map};
+use futures::stream::Concat2;
+use hyper::Chunk;
 use hyper::{Method, StatusCode};
 
-struct HelloWorld;
-
-const PHRASE: &'static str = "Hello, World!";
+fn reverse(chunk: Chunk) -> Response {
+    let reversed = chunk.iter()
+        //.rev()
+        .cloned()
+        .collect::<Vec<u8>>();
+    Response::new()
+        .with_body(reversed)
+}
 
 struct Echo;
-
 impl Service for Echo {
     type Request = Request;
-    type Response = Response;
     type Error = hyper::Error;
 
-    type Future = futures::future::FutureResult<Self::Response, Self::Error>;
+    type Future = Either<
+        futures::future::FutureResult<Self::Response, Self::Error>,
+        Map<Concat2<hyper::Body>, fn(Chunk) -> Self::Response>
+    >;
+    type Response = Response;
 
     fn call(&self, req: Request) -> Self::Future {
-        let mut response = Response::new();
-
         match (req.method(), req.path()) {
             (&Method::Get, "/") => {
-                response.set_body("Try POSTing data to /echo");
+                Either::A(
+                    futures::future::ok(
+                        Response::new().with_body("Try POSTing data to /echo")
+                ))
             },
             (&Method::Post, "/echo") => {
-                // we'll be back
-                response.set_body("Try POSTing data to /echo");
+                Either::B(
+                    req.body()
+                        .concat2()
+                        .map(reverse)
+                )
             },
             _ => {
-                response.set_status(StatusCode::NotFound);
+                Either::A(futures::future::ok(
+                        Response::new().with_status(StatusCode::NotFound)
+                ))
             },
-        };
-
-        futures::future::ok(response)
-        /*
-            Response::new()
-                .with_header(ContentLength(PHRASE.len() as u64))
-                .with_body(PHRASE)
-            )
-         */
+        }
     }
 }
 
 fn main() {
     let addr = "127.0.0.1:3000".parse().unwrap();
-    //let server = Http::new().bind(&addr, || Ok(HelloWorld)).unwrap();
     let server = Http::new().bind(&addr, || Ok(Echo)).unwrap();
     server.run().unwrap();
 }
