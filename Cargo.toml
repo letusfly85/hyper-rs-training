@@ -1,0 +1,7 @@
+[package]
+name = "hyper-rs-training"
+version = "0.1.0"
+authors = ["letusfly85 <letusfly95@gmail.com>"]
+
+[dependencies]
+hyper = "0.11"
