@@ -20,7 +20,7 @@ use hyper::{Method, StatusCode};
 #[derive(Serialize, Deserialize, Debug)]
 struct EchoMessage {
     id: i32,
-    message: String
+    message: String,
 }
 
 fn reverse(chunk: Chunk) -> Response {
@@ -28,8 +28,7 @@ fn reverse(chunk: Chunk) -> Response {
         //.rev()
         .cloned()
         .collect::<Vec<u8>>();
-    Response::new()
-        .with_body(reversed)
+    Response::new().with_body(reversed)
 }
 
 struct Echo;
@@ -39,33 +38,29 @@ impl Service for Echo {
 
     type Future = Either<
         futures::future::FutureResult<Self::Response, Self::Error>,
-        Map<Concat2<hyper::Body>, fn(Chunk) -> Self::Response>
+        Map<Concat2<hyper::Body>, fn(Chunk) -> Self::Response>,
     >;
     type Response = Response;
 
     fn call(&self, req: Request) -> Self::Future {
         match (req.method(), req.path()) {
             (&Method::Get, "/echo") => {
-                let echo_message = EchoMessage { id: 1, message: "hello! world!".to_string() };
+                let echo_message = EchoMessage {
+                    id: 1,
+                    message: "hello! world!".to_string(),
+                };
                 let serialized_message = serde_json::to_string(&echo_message).unwrap();
                 println!("{:?}", serialized_message);
-                Either::A(
-                    futures::future::ok(
-                        Response::new().with_body(format!("{}", serialized_message))
+                Either::A(futures::future::ok(
+                    Response::new().with_body(format!("{}", serialized_message)),
                 ))
-            },
-            (&Method::Post, "/echo") => {
-                Either::B(
-                    req.body()
-                        .concat2()
-                        .map(reverse)
-                )
-            },
+            }
+            (&Method::Post, "/echo") => Either::B(req.body().concat2().map(reverse)),
             _ => {
                 Either::A(futures::future::ok(
-                        Response::new().with_status(StatusCode::NotFound)
+                    Response::new().with_status(StatusCode::NotFound),
                 ))
-            },
+            }
         }
     }
 }
