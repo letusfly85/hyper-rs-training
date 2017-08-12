@@ -1,3 +1,9 @@
+#[macro_use]
+extern crate serde_derive;
+
+extern crate serde;
+extern crate serde_json;
+
 extern crate hyper;
 extern crate futures;
 
@@ -10,6 +16,12 @@ use futures::future::{Either, Map};
 use futures::stream::Concat2;
 use hyper::Chunk;
 use hyper::{Method, StatusCode};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct EchoMessage {
+    id: i32,
+    message: String
+}
 
 fn reverse(chunk: Chunk) -> Response {
     let reversed = chunk.iter()
@@ -33,10 +45,13 @@ impl Service for Echo {
 
     fn call(&self, req: Request) -> Self::Future {
         match (req.method(), req.path()) {
-            (&Method::Get, "/") => {
+            (&Method::Get, "/echo") => {
+                let echo_message = EchoMessage { id: 1, message: "hello! world!".to_string() };
+                let serialized_message = serde_json::to_string(&echo_message).unwrap();
+                println!("{:?}", serialized_message);
                 Either::A(
                     futures::future::ok(
-                        Response::new().with_body("Try POSTing data to /echo")
+                        Response::new().with_body(format!("{}", serialized_message))
                 ))
             },
             (&Method::Post, "/echo") => {
